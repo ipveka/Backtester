@@ -1,0 +1,19 @@
+Ticker,Name,Category,Region,Description
+SPY,SPDR S&P 500 ETF Trust,Equity,US,Tracks the S&P 500 Index
+QQQ,Invesco QQQ Trust,Equity,US,Tracks the Nasdaq-100 Index
+IWM,iShares Russell 2000 ETF,Equity,US,Tracks the Russell 2000 Index
+VTI,Vanguard Total Stock Market ETF,Equity,US,Tracks the CRSP US Total Market Index
+VOO,Vanguard S&P 500 ETF,Equity,US,Tracks the S&P 500 Index
+AGG,iShares Core U.S. Aggregate Bond ETF,Bond,US,Tracks the Bloomberg US Aggregate Bond Index
+BND,Vanguard Total Bond Market ETF,Bond,US,Tracks the Bloomberg U.S. Aggregate Float Adjusted Index
+TLT,iShares 20+ Year Treasury Bond ETF,Bond,US,Tracks the ICE U.S. Treasury 20+ Year Bond Index
+GLD,SPDR Gold Shares,Commodity,US,Tracks the price of gold bullion
+VNQ,Vanguard Real Estate ETF,Real Estate,US,Tracks the MSCI US Investable Market Real Estate 25/50 Index
+VGK,Vanguard FTSE Europe ETF,Equity,EU,Tracks the FTSE Developed Europe All Cap Index
+IEUR,iShares Core MSCI Europe ETF,Equity,EU,Tracks the MSCI Europe Investable Market Index
+EZU,iShares MSCI Eurozone ETF,Equity,EU,Tracks the MSCI EMU Index
+HEZU,iShares Currency Hedged MSCI Eurozone ETF,Equity,EU,Currency-hedged version of EZU
+IEAC,iShares Core € Corp Bond UCITS ETF,Bond,EU,Tracks the Bloomberg Euro Corporate Bond Index
+IBTE,iShares $ Treasury Bond 1-3yr UCITS ETF,Bond,EU,Tracks short-term US Treasury bonds
+PHAU,Invesco Physical Gold ETC,Commodity,EU,Tracks the spot gold price
+TRET,VanEck Vectors European Real Estate UCITS ETF,Real Estate,EU,Tracks European real estate companies

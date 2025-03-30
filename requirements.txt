@@ -1,0 +1,28 @@
+# Core
+streamlit>=1.30.0
+pandas>=2.0.0
+numpy>=1.24.0
+yfinance>=0.2.28
+investpy>=1.0.8
+streamlit
+
+# Financial analysis
+pyfolio>=0.9.2
+empyrical>=0.5.5
+scipy>=1.10.0
+
+# Visualization
+plotly>=5.15.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Report generation
+fpdf>=1.7.2
+reportlab>=4.0.4
+
+# Testing
+pytest>=7.3.1
+
+# Others
+python-dateutil>=2.8.2
+tqdm>=4.65.0
