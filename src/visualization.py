@@ -175,7 +175,8 @@ def plot_annual_returns(results: Any) -> go.Figure:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         margin=dict(l=10, r=10, t=40, b=10),
         hovermode='x unified',
-        template='plotly_white'
+        template='plotly_white',
+        height=500  # Make it taller for better visibility
     )
     
     return fig
@@ -183,7 +184,7 @@ def plot_annual_returns(results: Any) -> go.Figure:
 
 def plot_returns_histogram(results: Any) -> go.Figure:
     """
-    Plot a histogram of daily returns.
+    Plot a simpler histogram of daily returns.
     
     Parameters:
     -----------
@@ -197,77 +198,68 @@ def plot_returns_histogram(results: Any) -> go.Figure:
     """
     returns = results.returns_df['Daily Returns'].dropna() * 100  # Convert to percentage
     
-    # Create the figure
+    # Create a more straightforward histogram
     fig = go.Figure()
     
-    # Add the histogram
+    # Add the histogram with nicer styling
     fig.add_trace(go.Histogram(
         x=returns,
         nbinsx=30,
-        marker_color='rgba(30, 136, 229, 0.6)',
-        marker_line_color='rgba(30, 136, 229, 1)',
-        marker_line_width=1,
+        marker=dict(
+            color='rgba(30, 136, 229, 0.7)',
+            line=dict(color='rgba(30, 136, 229, 1)', width=1)
+        ),
         name='Daily Returns'
-    ))
-    
-    # Add a normal distribution overlay
-    x_range = np.linspace(returns.min(), returns.max(), 100)
-    y_range = np.exp(-(x_range - returns.mean())**2 / (2 * returns.std()**2)) / (returns.std() * np.sqrt(2 * np.pi))
-    y_range = y_range * len(returns) * (returns.max() - returns.min()) / 30  # Scale to match histogram
-    
-    fig.add_trace(go.Scatter(
-        x=x_range,
-        y=y_range,
-        mode='lines',
-        name='Normal Distribution',
-        line=dict(color='rgba(255, 87, 34, 0.8)', width=2)
-    ))
-    
-    # Add vertical lines for key values
-    fig.add_trace(go.Scatter(
-        x=[returns.mean(), returns.mean()],
-        y=[0, y_range.max() * 1.1],
-        mode='lines',
-        name='Mean',
-        line=dict(color='rgba(0, 0, 0, 0.7)', width=2, dash='dash')
-    ))
-    
-    # Calculate VaR lines
-    var_95 = np.percentile(returns, 5)
-    fig.add_trace(go.Scatter(
-        x=[var_95, var_95],
-        y=[0, y_range.max() * 0.9],
-        mode='lines',
-        name='VaR (95%)',
-        line=dict(color='rgba(244, 67, 54, 0.8)', width=2, dash='dot')
     ))
     
     # Customize the layout
     fig.update_layout(
         title='Return Distribution',
-        xaxis=dict(title='Daily Return (%)', gridcolor='lightgray'),
-        yaxis=dict(title='Frequency', gridcolor='lightgray'),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(l=10, r=10, t=40, b=10),
+        xaxis=dict(
+            title='Daily Return (%)',
+            gridcolor='lightgray',
+            zeroline=True,
+            zerolinecolor='black',
+            zerolinewidth=1.5
+        ),
+        yaxis=dict(
+            title='Frequency',
+            gridcolor='lightgray'
+        ),
+        margin=dict(l=10, r=10, t=50, b=10),
         bargap=0.05,
-        hovermode='x unified',
-        template='plotly_white'
+        template='plotly_white',
+        height=500  # Make it taller for better visibility
     )
     
-    # Add annotations
-    fig.add_annotation(
-        x=0.01,
-        y=0.98,
-        xref="paper",
+    # Add a vertical line for the mean
+    mean_return = returns.mean()
+    fig.add_shape(
+        type="line",
+        x0=mean_return,
+        y0=0,
+        x1=mean_return,
+        y1=1,
         yref="paper",
-        text=f"Mean: {returns.mean():.2f}%<br>Std Dev: {returns.std():.2f}%<br>Skewness: {returns.skew():.2f}<br>Kurtosis: {returns.kurt():.2f}",
-        showarrow=False,
-        font=dict(size=12),
-        bgcolor="rgba(255, 255, 255, 0.8)",
-        bordercolor="gray",
+        line=dict(color="rgba(0, 0, 0, 0.7)", width=2, dash="dash")
+    )
+    
+    # Add annotation for the mean
+    fig.add_annotation(
+        x=mean_return,
+        y=0.95,
+        yref="paper",
+        text=f"Mean: {mean_return:.2f}%",
+        showarrow=True,
+        arrowhead=2,
+        arrowcolor="rgba(0, 0, 0, 0.7)",
+        arrowsize=1,
+        arrowwidth=2,
+        bgcolor="white",
+        bordercolor="black",
         borderwidth=1,
         borderpad=4,
-        align="left"
+        opacity=0.8
     )
     
     return fig
@@ -397,7 +389,7 @@ def plot_monthly_returns_heatmap(results: Any) -> go.Figure:
         ],
         colorbar=dict(
             title='Return (%)',
-            titleside='right',
+            title_side='right',  # Changed from titleside to title_side
             thickness=15
         ),
         hovertemplate='Year: %{y}<br>Month: %{x}<br>Return: %{z:.2f}%<extra></extra>'
@@ -466,7 +458,7 @@ def plot_correlation_matrix(results: Any) -> go.Figure:
         ],
         colorbar=dict(
             title='Correlation',
-            titleside='right',
+            title_side='right',  # Changed from titleside to title_side
             thickness=15
         ),
         hovertemplate='%{x} & %{y}<br>Correlation: %{z:.2f}<extra></extra>'
@@ -489,7 +481,9 @@ def plot_correlation_matrix(results: Any) -> go.Figure:
     fig.update_layout(
         title='Correlation Matrix',
         margin=dict(l=10, r=10, t=40, b=10),
-        template='plotly_white'
+        template='plotly_white',
+        height=600,  # Make it taller for better visibility with multiple assets
+        width=700    # Make it wider for better visibility with multiple assets
     )
     
     return fig

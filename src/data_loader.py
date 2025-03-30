@@ -265,6 +265,10 @@ def load_inflation_data(country, start_date, end_date):
     """
     logger.info(f"Loading inflation data for {country} from {start_date} to {end_date}")
     
+    # Convert string dates to datetime objects for consistent comparison
+    start_dt = pd.to_datetime(start_date)
+    end_dt = pd.to_datetime(end_date)
+    
     # Path to the inflation data file
     inflation_path = os.path.join(DATA_DIR, 'inflation', f'{country.lower()}_inflation.csv')
     
@@ -273,8 +277,12 @@ def load_inflation_data(country, start_date, end_date):
         try:
             inflation_data = pd.read_csv(inflation_path, index_col=0, parse_dates=True)
             
-            # Filter to the requested date range
-            mask = (inflation_data.index >= start_date) & (inflation_data.index <= end_date)
+            # Ensure index has no timezone information
+            if inflation_data.index.tz is not None:
+                inflation_data.index = inflation_data.index.tz_localize(None)
+            
+            # Filter to the requested date range - using datetime objects
+            mask = (inflation_data.index >= start_dt) & (inflation_data.index <= end_dt)
             inflation_data = inflation_data.loc[mask]
             
             if not inflation_data.empty:
@@ -288,7 +296,7 @@ def load_inflation_data(country, start_date, end_date):
     logger.warning("Using dummy inflation data")
     
     # Create date range - fixing the deprecation warning
-    date_range = pd.date_range(start=start_date, end=end_date, freq='ME')
+    date_range = pd.date_range(start=start_dt, end=end_dt, freq='ME')
     
     # Create dummy data (around 2-3% annual inflation)
     np.random.seed(42)  # For reproducibility

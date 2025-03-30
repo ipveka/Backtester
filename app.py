@@ -68,6 +68,10 @@ st.markdown("""
     .negative {
         color: #F44336;
     }
+    .center-container {
+        display: flex;
+        justify-content: center;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -215,13 +219,33 @@ else:
     
     # Display the portfolio composition in a pie chart
     if selected_etfs:
+        st.markdown("<h3 style='text-align: center;'>Portfolio Composition</h3>", unsafe_allow_html=True)
+        
+        # Create a larger, centered pie chart
         fig = px.pie(
             values=[etf_weights[ticker] for ticker in selected_etfs],
             names=selected_etfs,
-            title="Portfolio Composition",
-            color_discrete_sequence=px.colors.qualitative.Set3
+            color_discrete_sequence=px.colors.qualitative.Set3,
+            height=500,  # Make it taller
+            width=800,   # Make it wider
         )
-        st.plotly_chart(fig)
+        
+        # Update layout for a cleaner look
+        fig.update_layout(
+            margin=dict(t=0, b=0, l=0, r=0),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=-0.1,
+                xanchor="center",
+                x=0.5
+            )
+        )
+        
+        # Center the chart using columns
+        col1, col2, col3 = st.columns([1, 10, 1])
+        with col2:
+            st.plotly_chart(fig, use_container_width=True)
 
 # Main functionality - Run backtest when button is clicked
 if run_backtest and selected_etfs and total_weight == 100:
@@ -299,153 +323,165 @@ if run_backtest and selected_etfs and total_weight == 100:
             tab1, tab2, tab3, tab4 = st.tabs(["Annual Returns", "Risk Metrics", "Return Distribution", "Correlation"])
             
             with tab1:
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # Annual returns bar chart
-                    annual_returns_chart = plot_annual_returns(results)
-                    st.plotly_chart(annual_returns_chart, use_container_width=True)
-                
-                with col2:
-                    # Monthly returns heatmap
-                    monthly_returns_heatmap = plot_monthly_returns_heatmap(results)
-                    st.plotly_chart(monthly_returns_heatmap, use_container_width=True)
+                # Annual returns bar chart - vertical layout, no monthly returns
+                annual_returns_chart = plot_annual_returns(results)
+                st.plotly_chart(annual_returns_chart, use_container_width=True)
             
             with tab2:
-                col1, col2 = st.columns(2)
+                # Risk metrics table
+                st.markdown("### Risk Metrics")
+                risk_data = {
+                    "Metric": [
+                        "Value at Risk (95%)",
+                        "Value at Risk (99%)",
+                        "Expected Shortfall (95%)",
+                        "Maximum Drawdown",
+                        "Longest Drawdown Duration",
+                        "Annual Volatility"
+                    ],
+                    "Value": [
+                        f"{results.var_95:.2%}" if hasattr(results, 'var_95') else "N/A",
+                        f"{results.var_99:.2%}" if hasattr(results, 'var_99') else "N/A",
+                        f"{results.expected_shortfall:.2%}" if hasattr(results, 'expected_shortfall') else "N/A",
+                        f"{results.max_drawdown:.2%}" if hasattr(results, 'max_drawdown') else "N/A",
+                        f"{results.longest_drawdown_days} days" if hasattr(results, 'longest_drawdown_days') else "N/A",
+                        f"{results.volatility:.2%}" if hasattr(results, 'volatility') else "N/A"
+                    ]
+                }
+                st.table(pd.DataFrame(risk_data))
                 
-                with col1:
-                    # Drawdown chart
-                    drawdown_chart = plot_drawdown_periods(results)
-                    st.plotly_chart(drawdown_chart, use_container_width=True)
-                    
-                    # Risk metrics table
-                    st.markdown("### Risk Metrics")
-                    risk_data = {
-                        "Metric": [
-                            "Value at Risk (95%)",
-                            "Value at Risk (99%)",
-                            "Expected Shortfall (95%)",
-                            "Maximum Drawdown",
-                            "Longest Drawdown Duration",
-                            "Annual Volatility"
-                        ],
-                        "Value": [
-                            f"{results.var_95:.2%}" if hasattr(results, 'var_95') else "N/A",
-                            f"{results.var_99:.2%}" if hasattr(results, 'var_99') else "N/A",
-                            f"{results.expected_shortfall:.2%}" if hasattr(results, 'expected_shortfall') else "N/A",
-                            f"{results.max_drawdown:.2%}" if hasattr(results, 'max_drawdown') else "N/A",
-                            f"{results.longest_drawdown_days} days" if hasattr(results, 'longest_drawdown_days') else "N/A",
-                            f"{results.volatility:.2%}" if hasattr(results, 'volatility') else "N/A"
-                        ]
-                    }
-                    st.table(pd.DataFrame(risk_data))
+                # Worst periods table
+                st.markdown("### Worst Periods")
+                worst_periods = pd.DataFrame({
+                    "Period": ["Worst Day", "Worst Week", "Worst Month", "Worst Year"],
+                    "Return": [
+                        f"{results.worst_day_return:.2%}" if hasattr(results, 'worst_day_return') else "N/A",
+                        f"{results.worst_week_return:.2%}" if hasattr(results, 'worst_week_return') else "N/A",
+                        f"{results.worst_month_return:.2%}" if hasattr(results, 'worst_month_return') else "N/A",
+                        f"{results.worst_year_return:.2%}" if hasattr(results, 'worst_year_return') else "N/A"
+                    ],
+                    "Date": [
+                        results.worst_day_date.strftime("%Y-%m-%d") if hasattr(results, 'worst_day_date') and results.worst_day_date else "N/A",
+                        results.worst_week_date.strftime("%Y-%m-%d") if hasattr(results, 'worst_week_date') and results.worst_week_date else "N/A",
+                        results.worst_month_date.strftime("%Y-%m-%d") if hasattr(results, 'worst_month_date') and results.worst_month_date else "N/A",
+                        results.worst_year_date.strftime("%Y") if hasattr(results, 'worst_year_date') and results.worst_year_date else "N/A"
+                    ]
+                })
+                st.table(worst_periods)
                 
-                with col2:
-                    # Inflation-adjusted returns chart
-                    st.markdown("### Returns vs. Inflation")
-                    if hasattr(results, 'inflation_adjusted_returns') and results.inflation_adjusted_returns is not None:
-                        fig = go.Figure()
-                        fig.add_trace(go.Scatter(
-                            x=results.returns_df.index,
-                            y=results.returns_df['Cumulative Returns'] * 100,
-                            mode='lines',
-                            name='Nominal Returns'
-                        ))
-                        fig.add_trace(go.Scatter(
-                            x=results.inflation_adjusted_returns.index,
-                            y=results.inflation_adjusted_returns['Inflation-Adjusted Returns'] * 100,
-                            mode='lines',
-                            name='Inflation-Adjusted Returns'
-                        ))
-                        fig.update_layout(
-                            title="Nominal vs. Inflation-Adjusted Returns",
-                            xaxis_title="Date",
-                            yaxis_title="Cumulative Returns (%)",
-                            legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
-                            margin=dict(l=20, r=20, t=40, b=20)
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.info("Inflation data not available for the selected country or time period.")
-                    
-                    # Worst periods table
-                    st.markdown("### Worst Periods")
-                    worst_periods = pd.DataFrame({
-                        "Period": ["Worst Day", "Worst Week", "Worst Month", "Worst Year"],
+                # Best periods table
+                st.markdown("### Best Periods")
+                if hasattr(results, 'best_day_return'):
+                    best_periods = pd.DataFrame({
+                        "Period": ["Best Day", "Best Week", "Best Month", "Best Year"],
                         "Return": [
-                            f"{results.worst_day_return:.2%}" if hasattr(results, 'worst_day_return') else "N/A",
-                            f"{results.worst_week_return:.2%}" if hasattr(results, 'worst_week_return') else "N/A",
-                            f"{results.worst_month_return:.2%}" if hasattr(results, 'worst_month_return') else "N/A",
-                            f"{results.worst_year_return:.2%}" if hasattr(results, 'worst_year_return') else "N/A"
+                            f"{results.best_day_return:.2%}" if hasattr(results, 'best_day_return') else "N/A",
+                            f"{results.best_week_return:.2%}" if hasattr(results, 'best_week_return') else "N/A",
+                            f"{results.best_month_return:.2%}" if hasattr(results, 'best_month_return') else "N/A",
+                            f"{results.best_year_return:.2%}" if hasattr(results, 'best_year_return') else "N/A"
                         ],
                         "Date": [
-                            results.worst_day_date.strftime("%Y-%m-%d") if hasattr(results, 'worst_day_date') and results.worst_day_date else "N/A",
-                            results.worst_week_date.strftime("%Y-%m-%d") if hasattr(results, 'worst_week_date') and results.worst_week_date else "N/A",
-                            results.worst_month_date.strftime("%Y-%m-%d") if hasattr(results, 'worst_month_date') and results.worst_month_date else "N/A",
-                            results.worst_year_date.strftime("%Y") if hasattr(results, 'worst_year_date') and results.worst_year_date else "N/A"
+                            results.best_day_date.strftime("%Y-%m-%d") if hasattr(results, 'best_day_date') and results.best_day_date else "N/A",
+                            results.best_week_date.strftime("%Y-%m-%d") if hasattr(results, 'best_week_date') and results.best_week_date else "N/A",
+                            results.best_month_date.strftime("%Y-%m-%d") if hasattr(results, 'best_month_date') and results.best_month_date else "N/A",
+                            results.best_year_date.strftime("%Y") if hasattr(results, 'best_year_date') and results.best_year_date else "N/A"
                         ]
                     })
-                    st.table(worst_periods)
+                    st.table(best_periods)
+                else:
+                    # Create a placeholder with sample data
+                    best_periods = pd.DataFrame({
+                        "Period": ["Best Day", "Best Week", "Best Month", "Best Year"],
+                        "Return": ["N/A", "N/A", "N/A", "N/A"],
+                        "Date": ["N/A", "N/A", "N/A", "N/A"]
+                    })
+                    st.table(best_periods)
+                    st.info("Add 'analyze_best_periods' to the risk.py module to show actual best performance periods.")
             
             with tab3:
-                col1, col2 = st.columns(2)
+                # Simple Returns histogram
+                st.markdown("### Return Distribution")
                 
-                with col1:
-                    # Returns histogram
-                    returns_histogram = plot_returns_histogram(results)
-                    st.plotly_chart(returns_histogram, use_container_width=True)
-                
-                with col2:
-                    # Return statistics table
-                    st.markdown("### Return Statistics")
-                    returns_stats = pd.DataFrame({
-                        "Statistic": [
-                            "Mean Daily Return",
-                            "Median Daily Return",
-                            "Daily Return Std. Dev.",
-                            "Skewness",
-                            "Kurtosis",
-                            "Positive Days (%)",
-                            "Negative Days (%)"
-                        ],
-                        "Value": [
-                            f"{results.mean_return:.4%}" if hasattr(results, 'mean_return') else "N/A",
-                            f"{results.median_return:.4%}" if hasattr(results, 'median_return') else "N/A",
-                            f"{results.return_std:.4%}" if hasattr(results, 'return_std') else "N/A",
-                            f"{results.skewness:.4f}" if hasattr(results, 'skewness') else "N/A",
-                            f"{results.kurtosis:.4f}" if hasattr(results, 'kurtosis') else "N/A",
-                            f"{results.positive_days_pct:.2%}" if hasattr(results, 'positive_days_pct') else "N/A",
-                            f"{results.negative_days_pct:.2%}" if hasattr(results, 'negative_days_pct') else "N/A"
-                        ]
-                    })
-                    st.table(returns_stats)
+                if 'Daily Returns' in results.returns_df:
+                    # Simple histogram with Plotly
+                    returns = results.returns_df['Daily Returns'].dropna() * 100  # Convert to percentage
                     
-                    # Rolling returns
-                    st.markdown("### Rolling Returns")
-                    rolling_returns = pd.DataFrame({
-                        "Period": ["1-Year", "3-Year", "5-Year", "10-Year"],
-                        "Minimum": [
-                            f"{results.rolling_returns_1yr_min:.2%}" if hasattr(results, 'rolling_returns_1yr_min') and results.rolling_returns_1yr_min is not None else "N/A",
-                            f"{results.rolling_returns_3yr_min:.2%}" if hasattr(results, 'rolling_returns_3yr_min') and results.rolling_returns_3yr_min is not None else "N/A",
-                            f"{results.rolling_returns_5yr_min:.2%}" if hasattr(results, 'rolling_returns_5yr_min') and results.rolling_returns_5yr_min is not None else "N/A",
-                            f"{results.rolling_returns_10yr_min:.2%}" if hasattr(results, 'rolling_returns_10yr_min') and results.rolling_returns_10yr_min is not None else "N/A"
-                        ],
-                        "Maximum": [
-                            f"{results.rolling_returns_1yr_max:.2%}" if hasattr(results, 'rolling_returns_1yr_max') and results.rolling_returns_1yr_max is not None else "N/A",
-                            f"{results.rolling_returns_3yr_max:.2%}" if hasattr(results, 'rolling_returns_3yr_max') and results.rolling_returns_3yr_max is not None else "N/A",
-                            f"{results.rolling_returns_5yr_max:.2%}" if hasattr(results, 'rolling_returns_5yr_max') and results.rolling_returns_5yr_max is not None else "N/A",
-                            f"{results.rolling_returns_10yr_max:.2%}" if hasattr(results, 'rolling_returns_10yr_max') and results.rolling_returns_10yr_max is not None else "N/A"
-                        ],
-                        "Average": [
-                            f"{results.rolling_returns_1yr_avg:.2%}" if hasattr(results, 'rolling_returns_1yr_avg') and results.rolling_returns_1yr_avg is not None else "N/A",
-                            f"{results.rolling_returns_3yr_avg:.2%}" if hasattr(results, 'rolling_returns_3yr_avg') and results.rolling_returns_3yr_avg is not None else "N/A",
-                            f"{results.rolling_returns_5yr_avg:.2%}" if hasattr(results, 'rolling_returns_5yr_avg') and results.rolling_returns_5yr_avg is not None else "N/A",
-                            f"{results.rolling_returns_10yr_avg:.2%}" if hasattr(results, 'rolling_returns_10yr_avg') and results.rolling_returns_10yr_avg is not None else "N/A"
-                        ]
-                    })
-                    st.table(rolling_returns)
-            
+                    fig = go.Figure()
+                    fig.add_trace(go.Histogram(
+                        x=returns,
+                        nbinsx=30,
+                        marker_color='rgba(30, 136, 229, 0.6)',
+                        marker_line_color='rgba(30, 136, 229, 1)',
+                        marker_line_width=1
+                    ))
+                    
+                    # Update layout for a cleaner look
+                    fig.update_layout(
+                        title='Daily Returns Distribution',
+                        xaxis_title='Daily Return (%)',
+                        yaxis_title='Frequency',
+                        template='plotly_white',
+                        height=400
+                    )
+                    
+                    # Add a vertical line for the mean
+                    mean_return = returns.mean()
+                    fig.add_shape(
+                        type="line",
+                        x0=mean_return,
+                        y0=0,
+                        x1=mean_return,
+                        y1=1,
+                        yref="paper",
+                        line=dict(color="rgba(0, 0, 0, 0.7)", width=2, dash="dash")
+                    )
+                    
+                    # Add annotation for the mean
+                    fig.add_annotation(
+                        x=mean_return,
+                        y=0.95,
+                        yref="paper",
+                        text=f"Mean: {mean_return:.2f}%",
+                        showarrow=True,
+                        arrowhead=2,
+                        arrowcolor="rgba(0, 0, 0, 0.7)",
+                        arrowsize=1,
+                        arrowwidth=2,
+                        bgcolor="white",
+                        bordercolor="black",
+                        borderwidth=1,
+                        borderpad=4,
+                        opacity=0.8
+                    )
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Return data not available")
+                
+                # Return statistics table
+                st.markdown("### Return Statistics")
+                returns_stats = pd.DataFrame({
+                    "Statistic": [
+                        "Mean Daily Return",
+                        "Median Daily Return",
+                        "Daily Return Std. Dev.",
+                        "Skewness",
+                        "Kurtosis",
+                        "Positive Days (%)",
+                        "Negative Days (%)"
+                    ],
+                    "Value": [
+                        f"{results.mean_return:.4%}" if hasattr(results, 'mean_return') else "N/A",
+                        f"{results.median_return:.4%}" if hasattr(results, 'median_return') else "N/A",
+                        f"{results.return_std:.4%}" if hasattr(results, 'return_std') else "N/A",
+                        f"{results.skewness:.4f}" if hasattr(results, 'skewness') else "N/A",
+                        f"{results.kurtosis:.4f}" if hasattr(results, 'kurtosis') else "N/A",
+                        f"{results.positive_days_pct:.2%}" if hasattr(results, 'positive_days_pct') else "N/A",
+                        f"{results.negative_days_pct:.2%}" if hasattr(results, 'negative_days_pct') else "N/A"
+                    ]
+                })
+                st.table(returns_stats)
+                
             with tab4:
                 # Correlation matrix
                 if hasattr(results, 'correlation_matrix') and results.correlation_matrix is not None:

@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import os
 
 # Import local modules
-from src.data_loader import load_etf_data, load_inflation_data
+from src.data_loader import load_etf_data, load_dummy_data, load_inflation_data
 from src.portfolio import Portfolio, PortfolioSnapshot
 from src.analysis import (
     calculate_cagr,
@@ -21,12 +21,40 @@ from src.analysis import (
 from src.risk import (
     calculate_var,
     calculate_expected_shortfall,
-    analyze_worst_periods
+    analyze_worst_periods,
+    analyze_best_periods  # Add this line to import the new function
 )
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+def normalize_datetime_index(df):
+    """
+    Normalize a DataFrame index to ensure consistent datetime format without timezone information.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame with a datetime index that may contain timezone info
+    
+    Returns:
+    --------
+    pandas.DataFrame
+        DataFrame with a normalized datetime index (no timezone)
+    """
+    if df is None or df.empty:
+        return df
+    
+    if isinstance(df.index, pd.DatetimeIndex):
+        # Create a new DataFrame with timezone-naive index
+        normalized_df = pd.DataFrame(df.values, 
+                                    index=df.index.tz_localize(None) if df.index.tz else df.index,
+                                    columns=df.columns)
+        return normalized_df
+    
+    return df
 
 
 @dataclass
@@ -83,6 +111,16 @@ class BacktestResults:
     worst_month_date: datetime
     worst_year_return: float
     worst_year_date: datetime
+    
+    # Add best periods
+    best_day_return: float
+    best_day_date: datetime
+    best_week_return: float
+    best_week_date: datetime
+    best_month_return: float
+    best_month_date: datetime
+    best_year_return: float
+    best_year_date: datetime
     
     # Rolling returns
     rolling_returns_1yr_min: float
@@ -179,13 +217,21 @@ def backtest(
     etf_data = load_etf_data(tickers, start_date, end_date)
     
     if etf_data.empty:
-        raise ValueError("No ETF data available for the specified tickers and date range")
+        logger.warning("No ETF data available. Using dummy data.")
+        etf_data = load_dummy_data(tickers, start_date, end_date)
     
     # Add benchmark if specified
     if benchmark:
-        benchmark_data = load_etf_data([benchmark], start_date, end_date)
-        if not benchmark_data.empty:
-            benchmark_returns = benchmark_data.pct_change().dropna()
+        try:
+            benchmark_data = load_etf_data([benchmark], start_date, end_date)
+            if not benchmark_data.empty:
+                benchmark_returns = benchmark_data.pct_change().dropna()
+            else:
+                logger.warning(f"No data available for benchmark {benchmark}. Proceeding without benchmark.")
+                benchmark_returns = None
+        except Exception as e:
+            logger.error(f"Error loading benchmark data: {e}")
+            benchmark_returns = None
     else:
         benchmark_returns = None
     
@@ -308,9 +354,15 @@ def backtest(
     returns_df['Daily Returns'] = returns_df['Value'].pct_change()
     returns_df['Cumulative Returns'] = (1 + returns_df['Daily Returns']).cumprod() - 1
     
+    # Normalize returns dataframe to remove timezone info
+    returns_df = normalize_datetime_index(returns_df)
+    
     # Load inflation data if requested
     try:
         inflation_data = load_inflation_data(country, start_date, end_date)
+        
+        # Normalize inflation data datetime index to remove timezone info
+        inflation_data = normalize_datetime_index(inflation_data)
         
         # Calculate inflation-adjusted returns
         inflation_adjusted_returns = pd.DataFrame(index=returns_df.index)
@@ -329,6 +381,8 @@ def backtest(
     
     except Exception as e:
         logger.error(f"Error loading inflation data: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         inflation_data = None
         inflation_adjusted_returns = None
     
@@ -367,6 +421,9 @@ def backtest(
     # Analyze worst periods
     worst_periods = analyze_worst_periods(returns_df['Daily Returns'])
     
+    # Analyze best periods
+    best_periods = analyze_best_periods(returns_df['Daily Returns'])
+    
     # Calculate correlation matrix and asset statistics if multiple assets
     if len(tickers) > 1:
         # Get ETF returns
@@ -387,10 +444,31 @@ def backtest(
         asset_statistics = None
     
     # Calculate benchmark metrics
-    if benchmark_returns is not None:
-        benchmark_cagr = calculate_cagr(benchmark_data, ann_factor=252)
-        benchmark_sharpe = calculate_sharpe_ratio(benchmark_returns.iloc[:, 0], risk_free_rate, ann_factor=252)
-        benchmark_dd, benchmark_max_dd, _ = calculate_drawdowns(benchmark_returns.iloc[:, 0])
+    if benchmark_returns is not None and not benchmark_returns.empty:
+        try:
+            # Make sure we're working with a single column Series for the benchmark
+            if isinstance(benchmark_returns, pd.DataFrame) and benchmark_returns.shape[1] > 0:
+                benchmark_return_series = benchmark_returns.iloc[:, 0]
+            else:
+                benchmark_return_series = benchmark_returns
+                
+            # Get the benchmark data Series for CAGR calculation
+            if isinstance(benchmark_data, pd.DataFrame) and benchmark_data.shape[1] > 0:
+                benchmark_price_series = benchmark_data.iloc[:, 0]
+            else:
+                benchmark_price_series = benchmark_data
+            
+            # Calculate benchmark metrics
+            benchmark_cagr = calculate_cagr(benchmark_price_series, ann_factor=252)
+            benchmark_sharpe = calculate_sharpe_ratio(benchmark_return_series, risk_free_rate, ann_factor=252)
+            benchmark_dd, benchmark_max_dd, _ = calculate_drawdowns(benchmark_return_series)
+        except Exception as e:
+            logger.error(f"Error calculating benchmark metrics: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            benchmark_cagr = None
+            benchmark_sharpe = None
+            benchmark_max_dd = None
     else:
         benchmark_cagr = None
         benchmark_sharpe = None
@@ -448,6 +526,16 @@ def backtest(
         worst_year_return=worst_periods['year']['return'],
         worst_year_date=worst_periods['year']['date'],
         
+        # Best periods - New additions
+        best_day_return=best_periods['day']['return'],
+        best_day_date=best_periods['day']['date'],
+        best_week_return=best_periods['week']['return'],
+        best_week_date=best_periods['week']['date'],
+        best_month_return=best_periods['month']['return'],
+        best_month_date=best_periods['month']['date'],
+        best_year_return=best_periods['year']['return'],
+        best_year_date=best_periods['year']['date'],
+        
         # Rolling returns
         rolling_returns_1yr_min=rolling_returns['1Y']['min'],
         rolling_returns_1yr_max=rolling_returns['1Y']['max'],
@@ -458,6 +546,10 @@ def backtest(
         rolling_returns_5yr_min=rolling_returns.get('5Y', {}).get('min'),
         rolling_returns_5yr_max=rolling_returns.get('5Y', {}).get('max'),
         rolling_returns_5yr_avg=rolling_returns.get('5Y', {}).get('avg'),
+        rolling_returns_10yr_min=rolling_returns.get('10Y', {}).get('min'),
+        rolling_returns_10yr_max=rolling_returns.get('10Y', {}).get('max'),
+        rolling_returns_10yr_avg=rolling_returns.get('10Y', {}).get('avg'),
+        
         # Monthly/annual returns analysis
         monthly_returns=monthly_returns_analysis,
         annual_returns=annual_returns_analysis,

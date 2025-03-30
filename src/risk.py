@@ -132,6 +132,87 @@ def analyze_worst_periods(returns: pd.Series) -> Dict[str, Dict[str, Any]]:
     return result
 
 
+def analyze_best_periods(returns: pd.Series) -> Dict[str, Dict[str, Any]]:
+    """
+    Analyze the best performing periods of various lengths.
+    
+    Parameters:
+    -----------
+    returns : pandas.Series
+        Series of returns
+    
+    Returns:
+    --------
+    Dict[str, Dict[str, Any]]
+        Dictionary with best day, week, month, and year information
+    """
+    result = {}
+    
+    # Ensure we have a datetime index
+    if not isinstance(returns.index, pd.DatetimeIndex):
+        returns.index = pd.to_datetime(returns.index)
+    
+    # Best day (already in daily format)
+    if len(returns) > 0:
+        best_day_idx = returns.idxmax()
+        result['day'] = {
+            'return': returns.loc[best_day_idx],
+            'date': best_day_idx
+        }
+    else:
+        result['day'] = {
+            'return': 0,
+            'date': None
+        }
+    
+    # Best week
+    try:
+        weekly_returns = returns.resample('W').apply(lambda x: (1 + x).prod() - 1)
+        best_week_idx = weekly_returns.idxmax()
+        result['week'] = {
+            'return': weekly_returns.loc[best_week_idx],
+            'date': best_week_idx
+        }
+    except Exception as e:
+        logger.error(f"Error calculating best week: {e}")
+        result['week'] = {
+            'return': 0,
+            'date': None
+        }
+    
+    # Best month - using 'ME' instead of 'M' for month end frequency
+    try:
+        monthly_returns = returns.resample('ME').apply(lambda x: (1 + x).prod() - 1)
+        best_month_idx = monthly_returns.idxmax()
+        result['month'] = {
+            'return': monthly_returns.loc[best_month_idx],
+            'date': best_month_idx
+        }
+    except Exception as e:
+        logger.error(f"Error calculating best month: {e}")
+        result['month'] = {
+            'return': 0,
+            'date': None
+        }
+    
+    # Best year - using 'YE' instead of 'Y' for year end frequency
+    try:
+        yearly_returns = returns.resample('YE').apply(lambda x: (1 + x).prod() - 1)
+        best_year_idx = yearly_returns.idxmax()
+        result['year'] = {
+            'return': yearly_returns.loc[best_year_idx],
+            'date': best_year_idx
+        }
+    except Exception as e:
+        logger.error(f"Error calculating best year: {e}")
+        result['year'] = {
+            'return': 0,
+            'date': None
+        }
+    
+    return result
+
+
 def calculate_stress_test(returns: pd.Series, scenario_name: str) -> Dict[str, float]:
     """
     Perform a stress test by simulating specific historical market scenario.
